@@ -71,7 +71,10 @@ class NoteDetailViewModel @Inject constructor(
         val lastEdited: Long = System.currentTimeMillis(),
         val isNotePersisted: Boolean = false,
         val isLoading: Boolean = true,
-        val isModified: Boolean = false
+        val isModified: Boolean = false,
+        val isSummarizing: Boolean = false,
+        val summaryResult: String? = null,
+        val summaryError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -273,5 +276,30 @@ class NoteDetailViewModel @Inject constructor(
         if (noteId != -1) {
             loadNote(noteId)
         }
+    }
+
+    fun summarizeNote() {
+        val content = _uiState.value.content
+        if (content.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSummarizing = true, summaryResult = null, summaryError = null) }
+
+            kotlinx.coroutines.delay(1500)
+
+            val lines = content.lines().filter { it.isNotBlank() }.take(3)
+            val placeholderSummary = if (lines.size >= 3) {
+                lines.joinToString("\n") { "• $it" }
+            } else {
+                (lines + List(3 - lines.size) { "Key point ${lines.size + it + 1} from note" })
+                    .joinToString("\n") { "• $it" }
+            }
+
+            _uiState.update { it.copy(isSummarizing = false, summaryResult = placeholderSummary) }
+        }
+    }
+
+    fun dismissSummary() {
+        _uiState.update { it.copy(summaryResult = null, summaryError = null) }
     }
 }

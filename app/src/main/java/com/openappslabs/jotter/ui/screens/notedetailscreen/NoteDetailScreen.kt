@@ -52,7 +52,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -271,6 +273,36 @@ fun NoteDetailScreen(
                             }
                         }
                     } else if (isViewMode) {
+                        if (uiState.content.length > 50) {
+                            Surface(
+                                onClick = {
+                                    haptics.click()
+                                    viewModel.summarizeNote()
+                                },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (uiState.isSummarizing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Stars,
+                                            contentDescription = "Summarize",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Surface(
                             onClick = {
                                 haptics.click()
@@ -292,6 +324,36 @@ fun NoteDetailScreen(
                             }
                         }
                     } else {
+                        if (uiState.content.length > 50) {
+                            Surface(
+                                onClick = {
+                                    haptics.click()
+                                    viewModel.summarizeNote()
+                                },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (uiState.isSummarizing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Stars,
+                                            contentDescription = "Summarize",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Surface(
                             onClick = {
                                 haptics.success()
@@ -589,6 +651,19 @@ fun NoteDetailScreen(
                 showRestoreNoteDialog = false
                 viewModel.restoreNote()
                 onBackClick()
+            }
+        )
+    }
+
+    uiState.summaryResult?.let { summary ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.dismissSummary() },
+            title = { Text("AI Summary (Beta)") },
+            text = { Text(summary) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { viewModel.dismissSummary() }) {
+                    Text("Got it")
+                }
             }
         )
     }
