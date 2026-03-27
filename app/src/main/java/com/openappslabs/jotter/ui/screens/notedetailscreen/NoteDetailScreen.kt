@@ -47,14 +47,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +69,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,10 +82,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -129,6 +137,8 @@ fun NoteDetailScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val clipboardManager = LocalClipboardManager.current
+    var showToneMenu by remember { mutableStateOf(false) }
 
     var isViewMode by remember(uiState.isNotePersisted, userPrefs.defaultOpenInEdit) {
         val initialViewMode = if (uiState.isNotePersisted) {
@@ -272,110 +282,138 @@ fun NoteDetailScreen(
                                 )
                             }
                         }
-                    } else if (isViewMode) {
-                        if (uiState.content.length > 50) {
-                            Surface(
-                                onClick = {
-                                    haptics.click()
-                                    viewModel.summarizeNote()
-                                },
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .size(48.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (uiState.isSummarizing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Stars,
-                                            contentDescription = "Summarize",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        Surface(
-                            onClick = {
-                                haptics.click()
-                                showNoteActionDialog = true
-                            },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Actions",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
                     } else {
-                        if (uiState.content.length > 50) {
-                            Surface(
-                                onClick = {
-                                    haptics.click()
-                                    viewModel.summarizeNote()
-                                },
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .size(48.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (uiState.isSummarizing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Stars,
-                                            contentDescription = "Summarize",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                        // AI Actions
+                        if (uiState.content.isNotBlank()) {
+                            // Tone Changer (Magic Wand)
+                            Box {
+                                Surface(
+                                    onClick = {
+                                        haptics.click()
+                                        showToneMenu = true
+                                    },
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .size(48.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (uiState.isRewriting) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(24.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.AutoAwesome,
+                                                contentDescription = "Magic Tone Changer",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = showToneMenu,
+                                    onDismissRequest = { showToneMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Professional") },
+                                        onClick = {
+                                            showToneMenu = false
+                                            viewModel.rewriteNote("Professional")
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Academic") },
+                                        onClick = {
+                                            showToneMenu = false
+                                            viewModel.rewriteNote("Academic")
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Summarizer (Stars)
+                            if (uiState.content.length > 50) {
+                                Surface(
+                                    onClick = {
+                                        haptics.click()
+                                        viewModel.summarizeNote()
+                                    },
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .size(48.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (uiState.isSummarizing) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(24.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Stars,
+                                                contentDescription = "Summarize",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                        Surface(
-                            onClick = {
-                                haptics.success()
-                                viewModel.saveNote()
-                                isViewMode = true
-                                keyboardController?.hide()
-                            },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            enabled = isSaveEnabled,
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.Done,
-                                    contentDescription = "Save",
-                                    tint = if (isSaveEnabled) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                                    modifier = Modifier.size(24.dp)
-                                )
+
+                        if (isViewMode) {
+                            Surface(
+                                onClick = {
+                                    haptics.click()
+                                    showNoteActionDialog = true
+                                },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Actions",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            Surface(
+                                onClick = {
+                                    haptics.success()
+                                    viewModel.saveNote()
+                                    isViewMode = true
+                                    keyboardController?.hide()
+                                },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                enabled = isSaveEnabled,
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Done,
+                                        contentDescription = "Save",
+                                        tint = if (isSaveEnabled) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -655,14 +693,72 @@ fun NoteDetailScreen(
         )
     }
 
+    // AI Summary Dialog
     uiState.summaryResult?.let { summary ->
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { viewModel.dismissSummary() },
             title = { Text("AI Summary (Beta)") },
             text = { Text(summary) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { viewModel.dismissSummary() }) {
+                TextButton(onClick = { viewModel.dismissSummary() }) {
                     Text("Got it")
+                }
+            }
+        )
+    }
+
+    // Magic Tone Rewrite Dialog
+    uiState.rewriteResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissRewrite() },
+            title = { Text("Magic Rewrite") },
+            text = { Text(result) },
+            confirmButton = {
+                TextButton(onClick = {
+                    haptics.success()
+                    viewModel.applyRewrite()
+                    isViewMode = false
+                }) {
+                    Text("Replace Note")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        haptics.click()
+                        clipboardManager.setText(AnnotatedString(result))
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Copied to clipboard")
+                        }
+                    }) {
+                        Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Copy")
+                    }
+                    TextButton(onClick = { viewModel.dismissRewrite() }) {
+                        Text("Cancel")
+                    }
+                }
+            }
+        )
+    }
+
+    // Error Dialogs
+    val aiError = uiState.summaryError ?: uiState.rewriteError
+    aiError?.let { error ->
+        AlertDialog(
+            onDismissRequest = { 
+                viewModel.dismissSummary()
+                viewModel.dismissRewrite()
+            },
+            title = { Text("AI Error") },
+            text = { Text(error) },
+            confirmButton = {
+                TextButton(onClick = { 
+                    viewModel.dismissSummary()
+                    viewModel.dismissRewrite()
+                }) {
+                    Text("OK")
                 }
             }
         )

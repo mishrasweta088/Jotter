@@ -139,4 +139,7 @@ dependencies {
 
     // Biometrics
     implementation(libs.androidx.biometric)
+
+    // MediaPipe LLM Inference
+    implementation(libs.mediapipe.genai)
 }

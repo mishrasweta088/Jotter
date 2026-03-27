@@ -26,6 +26,7 @@ import com.openappslabs.jotter.data.repository.CategoryRepository
 import com.openappslabs.jotter.data.repository.NotesRepository
 import com.openappslabs.jotter.data.repository.UserPreferences
 import com.openappslabs.jotter.data.repository.UserPreferencesRepository
+import com.openappslabs.jotter.data.source.AiSummarizerService
 import com.openappslabs.jotter.navigation.AppRoutes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +47,8 @@ class NoteDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val notesRepository: NotesRepository,
     private val categoryRepository: CategoryRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val aiSummarizerService: AiSummarizerService
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<AppRoutes.NoteDetail>()
@@ -74,7 +76,10 @@ class NoteDetailViewModel @Inject constructor(
         val isModified: Boolean = false,
         val isSummarizing: Boolean = false,
         val summaryResult: String? = null,
-        val summaryError: String? = null
+        val summaryError: String? = null,
+        val isRewriting: Boolean = false,
+        val rewriteResult: String? = null,
+        val rewriteError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -284,22 +289,43 @@ class NoteDetailViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSummarizing = true, summaryResult = null, summaryError = null) }
-
-            kotlinx.coroutines.delay(1500)
-
-            val lines = content.lines().filter { it.isNotBlank() }.take(3)
-            val placeholderSummary = if (lines.size >= 3) {
-                lines.joinToString("\n") { "• $it" }
-            } else {
-                (lines + List(3 - lines.size) { "Key point ${lines.size + it + 1} from note" })
-                    .joinToString("\n") { "• $it" }
+            
+            try {
+                val result = aiSummarizerService.summarize(content)
+                _uiState.update { it.copy(isSummarizing = false, summaryResult = result) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSummarizing = false, summaryError = e.message ?: "Unknown error occurred") }
             }
-
-            _uiState.update { it.copy(isSummarizing = false, summaryResult = placeholderSummary) }
         }
     }
 
     fun dismissSummary() {
         _uiState.update { it.copy(summaryResult = null, summaryError = null) }
+    }
+
+    fun rewriteNote(style: String) {
+        val content = _uiState.value.content
+        if (content.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRewriting = true, rewriteResult = null, rewriteError = null) }
+            try {
+                val result = aiSummarizerService.rewrite(content, style)
+                _uiState.update { it.copy(isRewriting = false, rewriteResult = result) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isRewriting = false, rewriteError = e.message ?: "Unknown error occurred") }
+            }
+        }
+    }
+
+    fun applyRewrite() {
+        _uiState.value.rewriteResult?.let { result ->
+            _uiState.update { it.copy(content = result, rewriteResult = null) }
+            checkForChanges()
+        }
+    }
+
+    fun dismissRewrite() {
+        _uiState.update { it.copy(rewriteResult = null, rewriteError = null) }
     }
 }
