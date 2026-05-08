@@ -27,6 +27,7 @@ import com.openappslabs.jotter.data.repository.NotesRepository
 import com.openappslabs.jotter.data.repository.UserPreferences
 import com.openappslabs.jotter.data.repository.UserPreferencesRepository
 import com.openappslabs.jotter.data.source.AiSummarizerService
+import com.openappslabs.jotter.data.source.BenchmarkResult
 import com.openappslabs.jotter.navigation.AppRoutes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +80,9 @@ class NoteDetailViewModel @Inject constructor(
         val summaryError: String? = null,
         val isRewriting: Boolean = false,
         val rewriteResult: String? = null,
-        val rewriteError: String? = null
+        val rewriteError: String? = null,
+        val lastBenchmark: BenchmarkResult? = null,
+        val benchmarkHistory: List<BenchmarkResult> = emptyList()
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -291,8 +294,15 @@ class NoteDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isSummarizing = true, summaryResult = null, summaryError = null) }
             
             try {
-                val result = aiSummarizerService.summarize(content)
-                _uiState.update { it.copy(isSummarizing = false, summaryResult = result) }
+                val (result, benchmark) = aiSummarizerService.summarizeWithBenchmark(content)
+                _uiState.update { 
+                    it.copy(
+                        isSummarizing = false, 
+                        summaryResult = result, 
+                        lastBenchmark = benchmark,
+                        benchmarkHistory = (listOf(benchmark) + it.benchmarkHistory).take(10)
+                    ) 
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSummarizing = false, summaryError = e.message ?: "Unknown error occurred") }
             }
@@ -310,8 +320,15 @@ class NoteDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isRewriting = true, rewriteResult = null, rewriteError = null) }
             try {
-                val result = aiSummarizerService.rewrite(content, style)
-                _uiState.update { it.copy(isRewriting = false, rewriteResult = result) }
+                val (result, benchmark) = aiSummarizerService.rewriteWithBenchmark(content, style)
+                _uiState.update { 
+                    it.copy(
+                        isRewriting = false, 
+                        rewriteResult = result, 
+                        lastBenchmark = benchmark,
+                        benchmarkHistory = (listOf(benchmark) + it.benchmarkHistory).take(10)
+                    ) 
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isRewriting = false, rewriteError = e.message ?: "Unknown error occurred") }
             }

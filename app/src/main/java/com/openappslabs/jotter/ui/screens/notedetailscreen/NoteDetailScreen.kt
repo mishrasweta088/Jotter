@@ -283,9 +283,7 @@ fun NoteDetailScreen(
                             }
                         }
                     } else {
-                        // AI Actions
                         if (uiState.content.isNotBlank()) {
-                            // Tone Changer (Magic Wand)
                             Box {
                                 Surface(
                                     onClick = {
@@ -336,7 +334,6 @@ fun NoteDetailScreen(
                                 }
                             }
 
-                            // Summarizer (Stars)
                             if (uiState.content.length > 50) {
                                 Surface(
                                     onClick = {
@@ -693,11 +690,21 @@ fun NoteDetailScreen(
         )
     }
 
-    // AI Summary Dialog
     uiState.summaryResult?.let { summary ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissSummary() },
-            title = { Text("AI Summary (Beta)") },
+            title = {
+                Column {
+                    Text("AI Summary (Beta)")
+                    uiState.lastBenchmark?.let {
+                        Text(
+                            text = "Latency: ${it.latencyMs}ms | ${String.format(Locale.getDefault(), "%.1f", it.tokensPerSec)} t/s | Heap: ${it.heapBeforeMb}→${it.heapAfterMb} MB",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
             text = { Text(summary) },
             confirmButton = {
                 TextButton(onClick = { viewModel.dismissSummary() }) {
@@ -707,11 +714,21 @@ fun NoteDetailScreen(
         )
     }
 
-    // Magic Tone Rewrite Dialog
     uiState.rewriteResult?.let { result ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissRewrite() },
-            title = { Text("Magic Rewrite") },
+            title = {
+                Column {
+                    Text("Magic Rewrite")
+                    uiState.lastBenchmark?.let {
+                        Text(
+                            text = "Latency: ${it.latencyMs}ms | ${String.format(Locale.getDefault(), "%.1f", it.tokensPerSec)} t/s | Heap: ${it.heapBeforeMb}→${it.heapAfterMb} MB",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
             text = { Text(result) },
             confirmButton = {
                 TextButton(onClick = {
@@ -743,7 +760,6 @@ fun NoteDetailScreen(
         )
     }
 
-    // Error Dialogs
     val aiError = uiState.summaryError ?: uiState.rewriteError
     aiError?.let { error ->
         AlertDialog(
